@@ -162,7 +162,7 @@ export async function POST(req: Request) {
   const functionName = txData.functionSelector ? KNOWN_FUNCTIONS[txData.functionSelector] || `Unknown function (${txData.functionSelector})` : 'Direct ETH Transfer'
 
   const result = streamText({
-    model: 'openai/gpt-5',
+    model: 'openai/gpt-4o',
     system: `You are an expert blockchain analyst who explains Ethereum transactions in plain English. You will receive real transaction data fetched from Etherscan. Analyze it and provide a clear, structured explanation.
 
 Your response MUST follow this exact structure with these section headers:
