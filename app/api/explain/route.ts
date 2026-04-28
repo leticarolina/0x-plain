@@ -189,7 +189,7 @@ Any suspicious activity or important observations. If everything looks normal, s
 - Input Data: ${txData.inputDataInfo}
 - Is Contract Creation: ${txData.isContractCreation}
 ${txData.contractAddress ? `- Created Contract: ${txData.contractAddress}` : ''}
-- Token Transfers Detected: ${txData.tokenTransfers.length > 0 ? txData.tokenTransfers.join('; ') : 'None'}
+- Token Transfers Detected: ${(txData.tokenTransfers && txData.tokenTransfers.length > 0) ? txData.tokenTransfers.join('; ') : 'None'}
 - Total Log Events: ${txData.logsCount}
 
 Please explain this transaction in plain English following the required format.`,
