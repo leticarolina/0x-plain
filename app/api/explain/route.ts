@@ -124,24 +124,38 @@ const KNOWN_FUNCTIONS: Record<string, string> = {
 }
 
 export async function POST(req: Request) {
+  console.log('[v0] API route called')
+  
   const body = await req.json()
+  console.log('[v0] Request body:', JSON.stringify(body))
+  
   const txHash = body.txHash || body.text || ''
+  console.log('[v0] Extracted txHash:', txHash)
 
   if (!txHash || typeof txHash !== 'string') {
+    console.log('[v0] Error: Transaction hash is required')
     return Response.json({ error: 'Transaction hash is required' }, { status: 400 })
   }
 
   const cleanHash = txHash.trim()
+  console.log('[v0] Clean hash:', cleanHash)
 
   if (!/^0x[a-fA-F0-9]{64}$/.test(cleanHash)) {
+    console.log('[v0] Error: Invalid transaction hash format')
     return Response.json({ error: 'Invalid transaction hash format' }, { status: 400 })
   }
 
+  // Check if API key is set
+  console.log('[v0] ETHERSCAN_API_KEY exists:', !!process.env.ETHERSCAN_API_KEY)
+
   // Fetch real transaction data
+  console.log('[v0] Fetching transaction from Etherscan...')
   const txData = await fetchTransactionFromEtherscan(cleanHash)
+  console.log('[v0] Etherscan response:', JSON.stringify(txData).slice(0, 500))
   
   if (!txData.found) {
-    return Response.json({ error: 'Transaction not found on Ethereum mainnet' }, { status: 404 })
+    console.log('[v0] Error: Transaction not found, error:', txData.error)
+    return Response.json({ error: `Transaction not found: ${txData.error}` }, { status: 404 })
   }
 
   // Get function name if known

@@ -11,14 +11,21 @@ export default function Home() {
   const [txHash, setTxHash] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
 
+  const [error, setError] = useState<string | null>(null)
+  
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/explain' }),
+    onError: (err) => {
+      console.log('[v0] useChat error:', err)
+      setError(err.message || 'Failed to analyze transaction')
+    },
   })
 
   const handleReset = () => {
     setTxHash('')
     setHasSearched(false)
     setMessages([])
+    setError(null)
   }
 
   const isLoading = status === 'streaming' || status === 'submitted'
@@ -27,6 +34,7 @@ export default function Home() {
     if (!hash.trim() || isLoading) return
     setTxHash(hash)
     setHasSearched(true)
+    setError(null)
     sendMessage({ text: hash }, { body: { txHash: hash } })
   }
 
@@ -91,8 +99,16 @@ export default function Home() {
             initialValue={txHash}
           />
 
+          {/* Error Display */}
+          {error && (
+            <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+              <p className="text-destructive font-medium">Error</p>
+              <p className="text-destructive/80 text-sm mt-1">{error}</p>
+            </div>
+          )}
+
           {/* Results Section */}
-          {hasSearched && (
+          {hasSearched && !error && (
             <ExplanationCard
               txHash={txHash}
               content={responseText}
