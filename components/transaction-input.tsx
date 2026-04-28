@@ -65,6 +65,7 @@ export function TransactionInput({ onSubmit, isLoading, initialValue = '' }: Tra
           )}
         </Button>
       </div>
+      <p className="text-xs text-muted-foreground mt-3 text-center">Currently supports Ethereum mainnet</p>
     </form>
   )
 }

@@ -2,21 +2,32 @@ import { streamText } from 'ai'
 
 // Fetch transaction data from Etherscan API
 async function fetchTransactionFromEtherscan(txHash: string) {
-  // Use Etherscan public API (no API key needed for basic calls, but rate limited)
-  const apiUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}`
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  
+  if (!apiKey) {
+    throw new Error('ETHERSCAN_API_KEY is not configured')
+  }
+
+  // Get transaction details
+  const txUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
   
   try {
-    const txResponse = await fetch(apiUrl)
+    const txResponse = await fetch(txUrl)
     const txData = await txResponse.json()
     
     if (txData.result && txData.result !== null) {
-      // Also get transaction receipt for status and gas used
-      const receiptUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}`
+      // Get transaction receipt for status and gas used
+      const receiptUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${apiKey}`
       const receiptResponse = await fetch(receiptUrl)
       const receiptData = await receiptResponse.json()
       
+      // Get receipt status separately for confirmation
+      const statusUrl = `https://api.etherscan.io/api?module=transaction&action=gettxreceiptstatus&txhash=${txHash}&apikey=${apiKey}`
+      const statusResponse = await fetch(statusUrl)
+      const statusData = await statusResponse.json()
+      
       // Get block info for timestamp
-      const blockUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true`
+      const blockUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true&apikey=${apiKey}`
       const blockResponse = await fetch(blockUrl)
       const blockData = await blockResponse.json()
       

@@ -1,19 +1,11 @@
 // @ts-nocheck
 import { fileURLToPath } from 'url'
 import path from 'path'
-import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const userConfigPath = path.join(__dirname, 'next.user-config.mjs')
 
-let userConfigImport = {}
-if (fs.existsSync(userConfigPath)) {
-  try {
-    userConfigImport = (await import('./next.user-config.mjs')).default
-  } catch (e) {
-    // next.user-config.mjs failed to load, using empty config
-  }
-}
+// User config is optional - default to empty object
+const userConfigImport = {}
 
 const __v0_turbopack_root = undefined ?? __dirname
 
