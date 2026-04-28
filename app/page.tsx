@@ -126,7 +126,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border px-4 py-4 md:px-6">
         <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
-          <p>Powered by AI with real-time blockchain data lookup</p>
+          <p>Powered by AI with real-time Etherscan data</p>
         </div>
       </footer>
     </main>
