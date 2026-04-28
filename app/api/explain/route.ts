@@ -1,4 +1,4 @@
-import { streamText, tool } from 'ai'
+import { streamText, tool, stepCountIs } from 'ai'
 import { z } from 'zod'
 
 // Helper function to fetch from Etherscan API or scrape transaction data
@@ -123,7 +123,7 @@ Search for this transaction on Etherscan to get the real data.`,
         },
       }),
     },
-    maxSteps: 5,
+    stopWhen: stepCountIs(5),
   })
 
   return result.toUIMessageStreamResponse()
