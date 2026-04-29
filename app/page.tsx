@@ -49,7 +49,7 @@ export default function Home() {
   return (
     <main className={`min-h-screen flex flex-col bg-background ${!hasSearched ? 'h-screen overflow-hidden' : ''}`}>
       {/* Colorful gradient bar at top */}
-      <div className="h-2 gradient-bar flex-shrink-0" />
+      <div className="h-1.5 gradient-bar flex-shrink-0" />
       
       {/* Header - minimal */}
       <header className="px-6 py-4 flex-shrink-0">
@@ -80,11 +80,11 @@ export default function Home() {
           {!hasSearched ? (
             <div className="text-center space-y-8">
               {/* Hero Title */}
-              <div className="space-y-4">
-                <h1 className="text-5xl md:text-6xl lg:text-7xl tracking-tight font-semibold gradient-text">
+              <div className="space-y-3 md:space-y-4">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight font-semibold gradient-text px-2">
                   From hex to human.
                 </h1>
-                <p className="text-lg md:text-xl text-muted-foreground font-light max-w-lg mx-auto">
+                <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-light max-w-lg mx-auto px-4">
                   Paste any Ethereum transaction hash and get a plain-English explanation of exactly what happened.
                 </p>
               </div>
@@ -99,20 +99,20 @@ export default function Home() {
               </div>
 
               {/* Example buttons - more prominent */}
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Or try one of these examples:</p>
-                <div className="flex flex-wrap justify-center gap-2">
+              <div className="space-y-3 px-2">
+                <p className="text-xs sm:text-sm text-muted-foreground">Or try one of these examples:</p>
+                <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
                   {[
-                    { hash: '0xfe07e3a0e7c1a0b89ca52bb389053927b69c36a059eae5908383411617c06285', label: 'Inscription Mint' },
-                    { hash: '0x12f1262a082b5208126b33fa3ea5064ab0d4fcb4185896e4b0681c35d470daee', label: 'Token Swap' },
-                    { hash: '0x772496436a352ba82bf69c5c5f9ebeb8fad453b2ae03bb3ba463a57d4d398bc1', label: 'NFT Transfer' },
-                    { hash: '0x4e2010a4ab975e6a483669bceb7000203c0e8351a6d15d50c75c30995435b352', label: 'Contract Call' },
-                    { hash: '0xb6db86279d798cf80d7fc5848671e73d1bad4b8cc1ff020e2c2745c104e113ea', label: 'DeFi Action' },
+                    { hash: '0xfe07e3a0e7c1a0b89ca52bb389053927b69c36a059eae5908383411617c06285', label: 'Inscription' },
+                    { hash: '0x12f1262a082b5208126b33fa3ea5064ab0d4fcb4185896e4b0681c35d470daee', label: 'Swap' },
+                    { hash: '0x772496436a352ba82bf69c5c5f9ebeb8fad453b2ae03bb3ba463a57d4d398bc1', label: 'NFT' },
+                    { hash: '0x4e2010a4ab975e6a483669bceb7000203c0e8351a6d15d50c75c30995435b352', label: 'Contract' },
+                    { hash: '0xb6db86279d798cf80d7fc5848671e73d1bad4b8cc1ff020e2c2745c104e113ea', label: 'DeFi' },
                   ].map((example) => (
                     <button
                       key={example.hash}
                       onClick={() => handleSubmit(example.hash)}
-                      className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/70 transition-colors"
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/70 active:bg-secondary/50 transition-colors"
                     >
                       {example.label}
                     </button>
