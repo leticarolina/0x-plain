@@ -47,7 +47,7 @@ export default function Home() {
     .join('') || ''
 
   return (
-    <main className="h-screen flex flex-col bg-background overflow-hidden">
+    <main className={`min-h-screen flex flex-col bg-background ${!hasSearched ? 'h-screen overflow-hidden' : ''}`}>
       {/* Colorful gradient bar at top */}
       <div className="h-1 gradient-bar flex-shrink-0" />
       
@@ -73,9 +73,9 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content - centered vertically */}
-      <div className="flex-1 flex items-center justify-center px-6 overflow-y-auto">
-        <div className="w-full max-w-2xl">
+      {/* Main Content - centered vertically on landing, scrollable on results */}
+      <div className={`flex-1 px-6 ${!hasSearched ? 'flex items-center justify-center' : 'overflow-y-auto py-6'}`}>
+        <div className="w-full max-w-2xl mx-auto">
           {/* Landing View */}
           {!hasSearched ? (
             <div className="text-center space-y-8">
