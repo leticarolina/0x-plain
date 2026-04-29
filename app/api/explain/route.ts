@@ -1,45 +1,66 @@
 import { streamText } from 'ai'
+import { Redis } from '@upstash/redis'
 
-// Simple in-memory rate limiter (resets on server restart)
-// For $5 budget: ~500 requests max at ~$0.01 per request
-const DAILY_LIMIT = 50 // requests per day
-const TOTAL_LIMIT = 500 // total requests to stay under $5
+// Initialize Redis for persistent rate limiting
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+})
 
-let dailyRequests = 0
-let totalRequests = 0
-let lastResetDate = new Date().toDateString()
+// Rate limits to stay under $5 budget
+// ~$0.01 per request = 500 max requests
+const DAILY_LIMIT = 50
+const TOTAL_LIMIT = 500
 
-function checkRateLimit(): { allowed: boolean; reason?: string } {
-  const today = new Date().toDateString()
+async function checkRateLimit(): Promise<{ allowed: boolean; reason?: string }> {
+  const today = new Date().toISOString().split('T')[0]
+  const dailyKey = `ratelimit:daily:${today}`
+  const totalKey = 'ratelimit:total'
   
-  // Reset daily counter if it's a new day
-  if (today !== lastResetDate) {
-    dailyRequests = 0
-    lastResetDate = today
-  }
-  
-  // Check total limit first
-  if (totalRequests >= TOTAL_LIMIT) {
-    return { 
-      allowed: false, 
-      reason: `Budget limit reached (${TOTAL_LIMIT} requests). Contact the developer to increase the limit.` 
+  try {
+    const [dailyCount, totalCount] = await Promise.all([
+      redis.get<number>(dailyKey),
+      redis.get<number>(totalKey),
+    ])
+    
+    const daily = dailyCount || 0
+    const total = totalCount || 0
+    
+    if (total >= TOTAL_LIMIT) {
+      return { 
+        allowed: false, 
+        reason: `Budget limit reached (${TOTAL_LIMIT} total requests). The $5 budget has been exhausted.`
+      }
     }
-  }
-  
-  // Check daily limit
-  if (dailyRequests >= DAILY_LIMIT) {
-    return { 
-      allowed: false, 
-      reason: `Daily limit reached (${DAILY_LIMIT} requests). Try again tomorrow.` 
+    
+    if (daily >= DAILY_LIMIT) {
+      return { 
+        allowed: false, 
+        reason: `Daily limit reached (${DAILY_LIMIT} requests). Try again tomorrow.`
+      }
     }
+    
+    return { allowed: true }
+  } catch (error) {
+    console.error('Rate limit check failed:', error)
+    return { allowed: true }
   }
-  
-  return { allowed: true }
 }
 
-function incrementCounters() {
-  dailyRequests++
-  totalRequests++
+async function incrementCounters() {
+  const today = new Date().toISOString().split('T')[0]
+  const dailyKey = `ratelimit:daily:${today}`
+  const totalKey = 'ratelimit:total'
+  
+  try {
+    await Promise.all([
+      redis.incr(dailyKey),
+      redis.expire(dailyKey, 86400),
+      redis.incr(totalKey),
+    ])
+  } catch (error) {
+    console.error('Failed to increment counters:', error)
+  }
 }
 
 // Fetch transaction data from Etherscan API
@@ -50,7 +71,6 @@ async function fetchTransactionFromEtherscan(txHash: string) {
     return { found: false, hash: txHash, error: 'ETHERSCAN_API_KEY is not configured' }
   }
 
-  // Get transaction details
   const txUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
   
   try {
@@ -58,12 +78,10 @@ async function fetchTransactionFromEtherscan(txHash: string) {
     const txData = await txResponse.json()
     
     if (txData.result && txData.result !== null) {
-      // Get transaction receipt for status and gas used
       const receiptUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${apiKey}`
       const receiptResponse = await fetch(receiptUrl)
       const receiptData = await receiptResponse.json()
       
-      // Get block info for timestamp
       const blockUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true&apikey=${apiKey}`
       const blockResponse = await fetch(blockUrl)
       const blockData = await blockResponse.json()
@@ -72,7 +90,6 @@ async function fetchTransactionFromEtherscan(txHash: string) {
       const receipt = receiptData.result || {}
       const block = blockData.result || {}
       
-      // Convert hex values
       const value = parseInt(tx.value, 16) / 1e18
       const gasPrice = parseInt(tx.gasPrice, 16) / 1e9
       const gasUsed = receipt.gasUsed ? parseInt(receipt.gasUsed, 16) : 0
@@ -81,10 +98,8 @@ async function fetchTransactionFromEtherscan(txHash: string) {
       const timestamp = block.timestamp ? new Date(parseInt(block.timestamp, 16) * 1000).toISOString() : 'Unknown'
       const status = receipt.status === '0x1' ? 'Success' : receipt.status === '0x0' ? 'Failed' : 'Unknown'
       
-      // Check if it's a contract creation
       const isContractCreation = !tx.to || tx.to === '0x0000000000000000000000000000000000000000'
       
-      // Decode input data (basic function selector)
       let functionSelector = ''
       let inputDataInfo = ''
       if (tx.input && tx.input !== '0x') {
@@ -94,11 +109,9 @@ async function fetchTransactionFromEtherscan(txHash: string) {
         inputDataInfo = 'No input data (simple ETH transfer)'
       }
       
-      // Check for token transfers in logs
       const tokenTransfers: string[] = []
       if (receipt.logs && receipt.logs.length > 0) {
         for (const log of receipt.logs) {
-          // ERC20 Transfer event signature
           if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
             const from = '0x' + (log.topics[1]?.slice(26) || '')
             const to = '0x' + (log.topics[2]?.slice(26) || '')
@@ -136,7 +149,6 @@ async function fetchTransactionFromEtherscan(txHash: string) {
   }
 }
 
-// Known function selectors (common ones)
 const KNOWN_FUNCTIONS: Record<string, string> = {
   '0xa9059cbb': 'transfer(address,uint256) - ERC20 token transfer',
   '0x23b872dd': 'transferFrom(address,address,uint256) - ERC20 transferFrom',
@@ -155,8 +167,8 @@ const KNOWN_FUNCTIONS: Record<string, string> = {
 }
 
 export async function POST(req: Request) {
-  // Check rate limit first
-  const rateLimit = checkRateLimit()
+  // Check rate limit
+  const rateLimit = await checkRateLimit()
   if (!rateLimit.allowed) {
     return Response.json({ error: rateLimit.reason }, { status: 429 })
   }
@@ -174,20 +186,18 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid transaction hash format' }, { status: 400 })
   }
 
-  // Fetch real transaction data from Etherscan
   const txData = await fetchTransactionFromEtherscan(cleanHash)
   
   if (!txData.found) {
     return Response.json({ error: txData.error || 'Transaction not found' }, { status: 404 })
   }
 
-  // Get function name if known
   const functionName = txData.functionSelector 
     ? KNOWN_FUNCTIONS[txData.functionSelector] || `Unknown function (${txData.functionSelector})` 
     : 'Direct ETH Transfer'
 
-  // Increment counters before making the AI call (the expensive part)
-  incrementCounters()
+  // Increment counters before the AI call
+  await incrementCounters()
 
   const result = streamText({
     model: 'openai/gpt-4o',
