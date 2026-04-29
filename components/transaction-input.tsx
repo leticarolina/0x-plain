@@ -29,43 +29,42 @@ export function TransactionInput({ onSubmit, isLoading, initialValue = '' }: Tra
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="flex flex-col gap-3 md:flex-row">
+      <div className="flex flex-col gap-3">
         <div className="flex-1 relative">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="0x..."
-            className="w-full h-14 px-4 bg-input border border-border rounded-lg font-mono text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
+            placeholder="Paste transaction hash (0x...)"
+            className="w-full h-14 px-4 bg-muted/50 border border-border rounded-xl font-mono text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
             disabled={isLoading}
             autoComplete="off"
             spellCheck={false}
           />
           {input && !isValidHash && (
             <p className="absolute -bottom-6 left-0 text-xs text-destructive">
-              Please enter a valid transaction hash (0x + 64 hex characters)
+              Enter a valid transaction hash (0x + 64 hex characters)
             </p>
           )}
         </div>
         <Button
           type="submit"
           disabled={isLoading || !input.trim() || !isValidHash}
-          className="h-14 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[180px]"
+          className="h-12 px-6 bg-foreground hover:bg-foreground/90 text-background font-medium rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               <span>Analyzing...</span>
             </>
           ) : (
             <>
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4" />
               <span>Explain Transaction</span>
             </>
           )}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground mt-3 text-center">Currently supports Ethereum mainnet</p>
     </form>
   )
 }

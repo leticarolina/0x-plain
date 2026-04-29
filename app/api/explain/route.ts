@@ -106,9 +106,37 @@ async function fetchTransactionFromEtherscan(txHash: string) {
       
       let functionSelector = ''
       let inputDataInfo = ''
+      let decodedInputData = ''
+      
       if (tx.input && tx.input !== '0x') {
         functionSelector = tx.input.slice(0, 10)
         inputDataInfo = `Function selector: ${functionSelector}, Input data length: ${(tx.input.length - 2) / 2} bytes`
+        
+        // Try to decode input data as UTF-8 text (for inscriptions/data protocols)
+        try {
+          const hexData = tx.input.startsWith('0x') ? tx.input.slice(2) : tx.input
+          const decoded = Buffer.from(hexData, 'hex').toString('utf-8')
+          
+          // Check if it looks like readable text or JSON
+          if (/^[\x20-\x7E\s]+$/.test(decoded) && decoded.length > 5) {
+            decodedInputData = decoded
+            
+            // Try to parse as JSON for inscriptions
+            if (decoded.includes('{') && decoded.includes('}')) {
+              try {
+                const jsonStart = decoded.indexOf('{')
+                const jsonEnd = decoded.lastIndexOf('}') + 1
+                const jsonStr = decoded.slice(jsonStart, jsonEnd)
+                const parsed = JSON.parse(jsonStr)
+                decodedInputData = `Inscription/Calldata: ${JSON.stringify(parsed, null, 2)}`
+              } catch {
+                decodedInputData = `Decoded text: ${decoded}`
+              }
+            }
+          }
+        } catch {
+          // Not valid UTF-8, keep as hex
+        }
       } else {
         inputDataInfo = 'No input data (simple ETH transfer)'
       }
@@ -138,7 +166,9 @@ async function fetchTransactionFromEtherscan(txHash: string) {
         status: status,
         nonce: parseInt(tx.nonce, 16),
         inputDataInfo: inputDataInfo,
+        decodedInputData: decodedInputData,
         functionSelector: functionSelector,
+        rawInputData: tx.input,
         isContractCreation: isContractCreation,
         contractAddress: receipt.contractAddress || null,
         tokenTransfers: tokenTransfers,
@@ -253,7 +283,9 @@ Any suspicious activity or important observations. If everything looks normal, s
 - Gas Fee: ${txData.gasFee}
 - Nonce: ${txData.nonce}
 - Function: ${functionName}
-- Input Data: ${txData.inputDataInfo}
+- Input Data Info: ${txData.inputDataInfo}
+${txData.decodedInputData ? `- Decoded Input Data: ${txData.decodedInputData}` : ''}
+- Raw Input (first 200 chars): ${txData.rawInputData?.slice(0, 200)}${txData.rawInputData?.length > 200 ? '...' : ''}
 - Is Contract Creation: ${txData.isContractCreation}
 ${txData.contractAddress ? `- Created Contract: ${txData.contractAddress}` : ''}
 - Token Transfers: ${(txData.tokenTransfers && txData.tokenTransfers.length > 0) ? txData.tokenTransfers.join('; ') : 'None'}

@@ -24,19 +24,16 @@ export function ExplanationCard({ txHash, content, isLoading }: ExplanationCardP
   return (
     <div className="w-full space-y-4">
       {/* Transaction Hash Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-card border border-border rounded-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/30 border border-border rounded-xl">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-primary font-mono text-sm font-bold">TX</span>
-          </div>
-          <span className="font-mono text-sm text-foreground truncate">
+          <span className="font-mono text-sm text-muted-foreground truncate">
             {txHash}
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={copyToClipboard}
-            className="p-2 rounded-md hover:bg-secondary transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors"
             title="Copy hash"
           >
             {copied ? (
@@ -49,62 +46,63 @@ export function ExplanationCard({ txHash, content, isLoading }: ExplanationCardP
             href={etherscanUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-md hover:bg-secondary transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             title="View on Etherscan"
           >
-            <ExternalLink className="w-4 h-4 text-muted-foreground" />
+            <ExternalLink className="w-4 h-4" />
+            <span className="hidden sm:inline">Etherscan</span>
           </a>
         </div>
       </div>
 
       {/* Explanation Content */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         {isLoading && !content ? (
-          <div className="p-8 flex flex-col items-center justify-center gap-4">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <div className="p-12 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
             <div className="text-center">
               <p className="text-foreground font-medium">Analyzing transaction...</p>
-              <p className="text-sm text-muted-foreground">Fetching data from blockchain explorers</p>
+              <p className="text-sm text-muted-foreground mt-1">Fetching data from Etherscan</p>
             </div>
           </div>
         ) : content ? (
-          <div className="p-6">
-            <article className="prose prose-invert prose-sm max-w-none">
+          <div className="p-6 md:p-8">
+            <article className="prose prose-sm max-w-none">
               <ReactMarkdown
                 components={{
                   h2: ({ children }) => (
-                    <h2 className="text-lg font-semibold text-foreground mt-6 mb-3 first:mt-0 flex items-center gap-2 border-b border-border pb-2">
+                    <h2 className="text-base font-semibold text-foreground mt-8 mb-3 first:mt-0 pb-2 border-b border-border">
                       {children}
                     </h2>
                   ),
                   h3: ({ children }) => (
-                    <h3 className="text-base font-medium text-foreground mt-4 mb-2">
+                    <h3 className="text-sm font-medium text-foreground mt-4 mb-2">
                       {children}
                     </h3>
                   ),
                   p: ({ children }) => (
-                    <p className="text-muted-foreground leading-relaxed mb-3">
+                    <p className="text-muted-foreground leading-relaxed mb-4 text-sm">
                       {children}
                     </p>
                   ),
                   ul: ({ children }) => (
-                    <ul className="space-y-2 mb-4">
+                    <ul className="space-y-2 mb-4 text-sm">
                       {children}
                     </ul>
                   ),
                   li: ({ children }) => (
                     <li className="text-muted-foreground flex items-start gap-2">
-                      <span className="text-primary mt-1.5">•</span>
+                      <span className="text-muted-foreground/50 mt-0.5">-</span>
                       <span>{children}</span>
                     </li>
                   ),
                   strong: ({ children }) => (
-                    <strong className="text-foreground font-medium">
+                    <strong className="text-foreground font-semibold">
                       {children}
                     </strong>
                   ),
                   code: ({ children }) => (
-                    <code className="px-1.5 py-0.5 bg-secondary rounded text-primary font-mono text-sm">
+                    <code className="px-1.5 py-0.5 bg-muted rounded-md text-foreground font-mono text-xs">
                       {children}
                     </code>
                   ),
