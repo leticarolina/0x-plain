@@ -3,76 +3,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Dark theme only - blockchain/crypto aesthetic */
-:root {
-  --background: oklch(0.11 0.005 285);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.15 0.005 285);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.15 0.005 285);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.75 0.18 165);
-  --primary-foreground: oklch(0.11 0 0);
-  --secondary: oklch(0.22 0.005 285);
-  --secondary-foreground: oklch(0.9 0 0);
-  --muted: oklch(0.22 0.005 285);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.75 0.18 165);
-  --accent-foreground: oklch(0.11 0 0);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.25 0.01 285);
-  --input: oklch(0.18 0.005 285);
-  --ring: oklch(0.75 0.18 165);
-  --chart-1: oklch(0.75 0.18 165);
-  --chart-2: oklch(0.7 0.15 200);
-  --chart-3: oklch(0.65 0.12 250);
-  --chart-4: oklch(0.8 0.15 85);
-  --chart-5: oklch(0.55 0.2 25);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.13 0.005 285);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.18 165);
-  --sidebar-primary-foreground: oklch(0.11 0 0);
-  --sidebar-accent: oklch(0.22 0.005 285);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.25 0.01 285);
-  --sidebar-ring: oklch(0.75 0.18 165);
-}
-
-.dark {
-  --background: oklch(0.11 0.005 285);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.15 0.005 285);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.15 0.005 285);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.75 0.18 165);
-  --primary-foreground: oklch(0.11 0 0);
-  --secondary: oklch(0.22 0.005 285);
-  --secondary-foreground: oklch(0.9 0 0);
-  --muted: oklch(0.22 0.005 285);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.75 0.18 165);
-  --accent-foreground: oklch(0.11 0 0);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.25 0.01 285);
-  --input: oklch(0.18 0.005 285);
-  --ring: oklch(0.75 0.18 165);
-  --chart-1: oklch(0.75 0.18 165);
-  --chart-2: oklch(0.7 0.15 200);
-  --chart-3: oklch(0.65 0.12 250);
-  --chart-4: oklch(0.8 0.15 85);
-  --chart-5: oklch(0.55 0.2 25);
-  --sidebar: oklch(0.13 0.005 285);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.18 165);
-  --sidebar-primary-foreground: oklch(0.11 0 0);
-  --sidebar-accent: oklch(0.22 0.005 285);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.25 0.01 285);
-  --sidebar-ring: oklch(0.75 0.18 165);
+/* Clean, minimalist light theme - LIGHT MODE ONLY */
+:root, .dark {
+  --background: #fafafa;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #262626;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #262626;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e5e5;
+  --input: #f5f5f5;
+  --ring: #2563eb;
+  --chart-1: #06b6d4;
+  --chart-2: #3b82f6;
+  --chart-3: #8b5cf6;
+  --chart-4: #f59e0b;
+  --chart-5: #ef4444;
+  --radius: 0.75rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #262626;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #2563eb;
 }
 
 @theme inline {
@@ -123,4 +88,29 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Colorful gradient bar */
+.gradient-bar {
+  background: linear-gradient(90deg, 
+    #06b6d4 0%, 
+    #3b82f6 25%, 
+    #8b5cf6 50%, 
+    #f59e0b 75%, 
+    #ef4444 100%
+  );
+}
+
+/* Gradient text for title - matches top bar */
+.gradient-text {
+  background: linear-gradient(90deg, 
+    #06b6d4 0%, 
+    #3b82f6 25%, 
+    #8b5cf6 50%, 
+    #f59e0b 75%, 
+    #ef4444 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

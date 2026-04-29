@@ -2,14 +2,12 @@
 import { fileURLToPath } from 'url'
 import path from 'path'
 
-let userConfigImport = {}
-try {
-  userConfigImport = (await import('./next.user-config.mjs')).default
-} catch (e) {
-  // next.user-config.mjs not found, using empty config
-}
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const __v0_turbopack_root = undefined ?? path.dirname(fileURLToPath(import.meta.url))
+// User config is optional - default to empty object
+const userConfigImport = {}
+
+const __v0_turbopack_root = undefined ?? __dirname
 
 export default async function v0NextConfig(phase, { defaultConfig }) {
   const userConfig = typeof userConfigImport === 'function'

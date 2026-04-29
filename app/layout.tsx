@@ -17,13 +17,16 @@ export const metadata: Metadata = {
   title: '0xPlain - Blockchain Transaction Explainer',
   description: 'Understand any blockchain transaction in plain English. Paste a transaction hash and get a detailed, human-readable explanation.',
   generator: 'v0.app',
+  icons: {
+    icon: '/icon.svg',
+  },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#1a1a2e',
+  themeColor: '#fafafa',
 }
 
 export default function RootLayout({

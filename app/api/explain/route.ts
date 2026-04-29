@@ -1,27 +1,202 @@
-import { streamText, tool, stepCountIs } from 'ai'
-import { z } from 'zod'
+import { streamText } from 'ai'
+import { Redis } from '@upstash/redis'
 
-// Helper function to fetch from Etherscan API or scrape transaction data
-async function fetchTransactionData(txHash: string) {
+// Initialize Redis for persistent rate limiting
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+})
+
+// Rate limits reduced by 80% to minimize costs
+const DAILY_LIMIT = 10
+const TOTAL_LIMIT = 100
+
+async function checkRateLimit(): Promise<{ allowed: boolean; reason?: string }> {
+  const today = new Date().toISOString().split('T')[0]
+  const dailyKey = `ratelimit:daily:${today}`
+  const totalKey = 'ratelimit:total'
+  
   try {
-    // Try to fetch from Etherscan public page
-    const response = await fetch(`https://etherscan.io/tx/${txHash}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; 0xPlain/1.0)',
-      },
-    })
+    const [dailyCount, totalCount] = await Promise.all([
+      redis.get<number>(dailyKey),
+      redis.get<number>(totalKey),
+    ])
     
-    if (response.ok) {
-      return {
-        url: `https://etherscan.io/tx/${txHash}`,
-        status: 'found',
-        hash: txHash,
+    const daily = dailyCount || 0
+    const total = totalCount || 0
+    
+    if (total >= TOTAL_LIMIT) {
+      return { 
+        allowed: false, 
+        reason: `Budget limit reached (${TOTAL_LIMIT} total requests). The $5 budget has been exhausted.`
       }
     }
-    return { status: 'not_found', hash: txHash }
+    
+    if (daily >= DAILY_LIMIT) {
+      return { 
+        allowed: false, 
+        reason: `Daily limit reached (${DAILY_LIMIT} requests). Try again tomorrow.`
+      }
+    }
+    
+    return { allowed: true }
   } catch (error) {
-    return { status: 'error', hash: txHash, error: String(error) }
+    console.error('Rate limit check failed:', error)
+    return { allowed: true }
   }
+}
+
+async function incrementCounters() {
+  const today = new Date().toISOString().split('T')[0]
+  const dailyKey = `ratelimit:daily:${today}`
+  const totalKey = 'ratelimit:total'
+  
+  try {
+    await Promise.all([
+      redis.incr(dailyKey),
+      redis.expire(dailyKey, 86400),
+      redis.incr(totalKey),
+    ])
+  } catch (error) {
+    console.error('Failed to increment counters:', error)
+  }
+}
+
+// Fetch transaction data from Etherscan API V2
+async function fetchTransactionFromEtherscan(txHash: string) {
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  
+  if (!apiKey) {
+    return { found: false, hash: txHash, error: 'ETHERSCAN_API_KEY is not configured' }
+  }
+
+  // Etherscan API V2 base URL for Ethereum mainnet (chainid=1)
+  const baseUrl = 'https://api.etherscan.io/v2/api'
+  const chainId = 1 // Ethereum mainnet
+  
+  const txUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
+  
+  try {
+    const txResponse = await fetch(txUrl)
+    const txData = await txResponse.json()
+    
+    if (txData.result && txData.result !== null && typeof txData.result === 'object') {
+      const receiptUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${apiKey}`
+      const receiptResponse = await fetch(receiptUrl)
+      const receiptData = await receiptResponse.json()
+      
+      const blockUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true&apikey=${apiKey}`
+      const blockResponse = await fetch(blockUrl)
+      const blockData = await blockResponse.json()
+      
+      const tx = txData.result
+      const receipt = receiptData.result || {}
+      const block = blockData.result || {}
+      
+      const value = parseInt(tx.value, 16) / 1e18
+      const gasPrice = parseInt(tx.gasPrice, 16) / 1e9
+      const gasUsed = receipt.gasUsed ? parseInt(receipt.gasUsed, 16) : 0
+      const gasFee = (gasUsed * gasPrice) / 1e9
+      const blockNumber = parseInt(tx.blockNumber, 16)
+      const timestamp = block.timestamp ? new Date(parseInt(block.timestamp, 16) * 1000).toISOString() : 'Unknown'
+      const status = receipt.status === '0x1' ? 'Success' : receipt.status === '0x0' ? 'Failed' : 'Unknown'
+      
+      const isContractCreation = !tx.to || tx.to === '0x0000000000000000000000000000000000000000'
+      
+      let functionSelector = ''
+      let inputDataInfo = ''
+      let decodedInputData = ''
+      
+      if (tx.input && tx.input !== '0x') {
+        functionSelector = tx.input.slice(0, 10)
+        inputDataInfo = `Function selector: ${functionSelector}, Input data length: ${(tx.input.length - 2) / 2} bytes`
+        
+        // Try to decode input data as UTF-8 text (for inscriptions/data protocols)
+        try {
+          const hexData = tx.input.startsWith('0x') ? tx.input.slice(2) : tx.input
+          const decoded = Buffer.from(hexData, 'hex').toString('utf-8')
+          
+          // Check if it looks like readable text or JSON
+          if (/^[\x20-\x7E\s]+$/.test(decoded) && decoded.length > 5) {
+            decodedInputData = decoded
+            
+            // Try to parse as JSON for inscriptions
+            if (decoded.includes('{') && decoded.includes('}')) {
+              try {
+                const jsonStart = decoded.indexOf('{')
+                const jsonEnd = decoded.lastIndexOf('}') + 1
+                const jsonStr = decoded.slice(jsonStart, jsonEnd)
+                const parsed = JSON.parse(jsonStr)
+                decodedInputData = `Inscription/Calldata: ${JSON.stringify(parsed, null, 2)}`
+              } catch {
+                decodedInputData = `Decoded text: ${decoded}`
+              }
+            }
+          }
+        } catch {
+          // Not valid UTF-8, keep as hex
+        }
+      } else {
+        inputDataInfo = 'No input data (simple ETH transfer)'
+      }
+      
+      const tokenTransfers: string[] = []
+      if (receipt.logs && receipt.logs.length > 0) {
+        for (const log of receipt.logs) {
+          if (log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef') {
+            const from = '0x' + (log.topics[1]?.slice(26) || '')
+            const to = '0x' + (log.topics[2]?.slice(26) || '')
+            tokenTransfers.push(`Token transfer from ${from} to ${to} (contract: ${log.address})`)
+          }
+        }
+      }
+      
+      return {
+        found: true,
+        hash: txHash,
+        from: tx.from,
+        to: tx.to || 'Contract Creation',
+        value: `${value} ETH`,
+        gasPrice: `${gasPrice.toFixed(2)} Gwei`,
+        gasUsed: gasUsed,
+        gasFee: `${gasFee.toFixed(6)} ETH`,
+        blockNumber: blockNumber,
+        timestamp: timestamp,
+        status: status,
+        nonce: parseInt(tx.nonce, 16),
+        inputDataInfo: inputDataInfo,
+        decodedInputData: decodedInputData,
+        functionSelector: functionSelector,
+        rawInputData: tx.input,
+        isContractCreation: isContractCreation,
+        contractAddress: receipt.contractAddress || null,
+        tokenTransfers: tokenTransfers,
+        logsCount: receipt.logs?.length || 0,
+        etherscanUrl: `https://etherscan.io/tx/${txHash}`,
+      }
+    }
+    
+    return { found: false, hash: txHash, error: 'Transaction not found on Ethereum mainnet' }
+  } catch (error) {
+    return { found: false, hash: txHash, error: String(error) }
+  }
+}
+
+const KNOWN_FUNCTIONS: Record<string, string> = {
+  '0xa9059cbb': 'transfer(address,uint256) - ERC20 token transfer',
+  '0x23b872dd': 'transferFrom(address,address,uint256) - ERC20 transferFrom',
+  '0x095ea7b3': 'approve(address,uint256) - ERC20 approve spender',
+  '0x38ed1739': 'swapExactTokensForTokens - Uniswap V2 swap',
+  '0x7ff36ab5': 'swapExactETHForTokens - Uniswap V2 swap ETH for tokens',
+  '0x18cbafe5': 'swapExactTokensForETH - Uniswap V2 swap tokens for ETH',
+  '0x5ae401dc': 'multicall - Uniswap V3 multicall',
+  '0x3593564c': 'execute - Uniswap Universal Router',
+  '0xd0e30db0': 'deposit() - WETH wrap',
+  '0x2e1a7d4d': 'withdraw(uint256) - WETH unwrap',
+  '0x40c10f19': 'mint(address,uint256) - Mint tokens',
+  '0xa22cb465': 'setApprovalForAll - NFT approval',
+  '0x42842e0e': 'safeTransferFrom - NFT transfer',
+  '0xfb0f3ee1': 'fulfillBasicOrder - OpenSea Seaport',
 }
 
 export async function POST(req: Request) {
@@ -32,98 +207,92 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Transaction hash is required' }, { status: 400 })
   }
 
-  // Clean the transaction hash
-  const cleanHash = txHash.trim()
+  const cleanHash = txHash.trim().toLowerCase()
 
-  // Validate hash format
   if (!/^0x[a-fA-F0-9]{64}$/.test(cleanHash)) {
     return Response.json({ error: 'Invalid transaction hash format' }, { status: 400 })
   }
 
+  // Check rate limit
+  const rateLimit = await checkRateLimit()
+  if (!rateLimit.allowed) {
+    return Response.json({ error: rateLimit.reason }, { status: 429 })
+  }
+
+  const txData = await fetchTransactionFromEtherscan(cleanHash)
+  
+  if (!txData.found) {
+    return Response.json({ error: txData.error || 'Transaction not found' }, { status: 404 })
+  }
+
+  const functionName = txData.functionSelector 
+    ? KNOWN_FUNCTIONS[txData.functionSelector] || `Unknown function (${txData.functionSelector})` 
+    : 'Direct ETH Transfer'
+
+  // Increment counters before the AI call
+  await incrementCounters()
+
   const result = streamText({
-    model: 'openai/gpt-5',
-    system: `You are an expert blockchain analyst who explains Ethereum transactions in plain English. 
+    model: 'openai/gpt-4o',
+    system: `You are an expert blockchain analyst who explains Ethereum transactions in plain English. Analyze the transaction data and provide a clear, structured explanation.
 
-IMPORTANT: You have access to web search capabilities. Use the searchWeb tool to look up the transaction on Etherscan to get real data.
-
-When analyzing a transaction:
-1. FIRST, use the searchWeb tool to search for the transaction hash on Etherscan
-2. Based on the search results, identify all transaction details
-3. Explain everything in a clear, structured format
-
-Your response MUST follow this exact structure with these section headers:
+Your response MUST follow this exact structure:
 
 ## Summary
-A one-sentence plain-English summary of what happened in this transaction.
+A one-sentence plain-English summary of what happened.
 
 ## Transaction Type
-The type of transaction (ETH Transfer, Token Transfer, Contract Interaction, NFT Mint, Token Swap, Contract Deployment, etc.)
+The type (ETH Transfer, Token Transfer, Contract Interaction, NFT Mint, Token Swap, Contract Deployment, etc.)
 
 ## Protocol / Contract
-The protocol or smart contract involved (e.g., Uniswap V3, OpenSea Seaport, USDT, etc.) with the contract address if relevant.
+The protocol or smart contract involved with the contract address.
 
 ## Function Called
-The specific function that was called on the smart contract and what each parameter means in plain English. If it's a simple ETH transfer, say "Direct ETH Transfer (no contract function)".
+The specific function called and what it does in plain English.
 
 ## Parties Involved
-- **From:** The sender address and any known labels (e.g., "0x123... (Binance Hot Wallet)")
-- **To:** The recipient address and any known labels
-- **Value:** The amount transferred in ETH/tokens with approximate USD value if known
+- **From:** The sender address
+- **To:** The recipient/contract address
+- **Value:** The amount transferred
 
 ## Transaction Details
 - **Block:** Block number
-- **Gas Used:** Gas amount and fee paid in ETH
+- **Gas Used:** Gas amount and fee paid
 - **Status:** Success or Failed
-- **Timestamp:** When the transaction was confirmed
+- **Timestamp:** When confirmed
 
 ## Flags & Notes
-Any suspicious activity, unusual patterns, or important observations. Note things like:
-- High gas fees
-- Failed transactions
-- Interactions with known scam contracts
-- Large value transfers
-If everything looks normal, say "No suspicious activity detected. This appears to be a standard transaction."
-
-Be accurate and base your analysis on real data from the search results. If you cannot find the transaction or it doesn't exist, clearly state that.`,
+Any suspicious activity or important observations. If everything looks normal, say "No suspicious activity detected."`,
     messages: [
       {
         role: 'user',
-        content: `Please analyze this Ethereum blockchain transaction and explain what happened in plain English: ${cleanHash}
+        content: `Analyze this Ethereum transaction:
 
-Search for this transaction on Etherscan to get the real data.`,
+**Transaction Hash:** ${cleanHash}
+**Etherscan URL:** ${txData.etherscanUrl}
+
+**Transaction Data:**
+- From: ${txData.from}
+- To: ${txData.to}
+- Value: ${txData.value}
+- Block: ${txData.blockNumber}
+- Timestamp: ${txData.timestamp}
+- Status: ${txData.status}
+- Gas Used: ${txData.gasUsed} units
+- Gas Fee: ${txData.gasFee}
+- Nonce: ${txData.nonce}
+- Function: ${functionName}
+- Input Data Info: ${txData.inputDataInfo}
+${txData.decodedInputData ? `- Decoded Input Data: ${txData.decodedInputData}` : ''}
+- Raw Input (first 200 chars): ${txData.rawInputData?.slice(0, 200)}${txData.rawInputData?.length > 200 ? '...' : ''}
+- Is Contract Creation: ${txData.isContractCreation}
+${txData.contractAddress ? `- Created Contract: ${txData.contractAddress}` : ''}
+- Token Transfers: ${(txData.tokenTransfers && txData.tokenTransfers.length > 0) ? txData.tokenTransfers.join('; ') : 'None'}
+- Log Events: ${txData.logsCount}
+
+Please explain this transaction in plain English.`,
       },
     ],
-    tools: {
-      searchWeb: tool({
-        description: 'Search the web for information. Use this to look up transaction details on Etherscan or other blockchain explorers.',
-        inputSchema: z.object({
-          query: z.string().describe('The search query - include the full transaction hash'),
-        }),
-        execute: async ({ query }) => {
-          // Construct search URL for transaction lookup
-          const txHash = query.match(/0x[a-fA-F0-9]{64}/)?.[0] || query
-          const searchUrl = `https://etherscan.io/tx/${txHash}`
-          
-          // Return information that helps the AI understand where to look
-          return {
-            searchQuery: query,
-            etherscanUrl: searchUrl,
-            blockscoutUrl: `https://eth.blockscout.com/tx/${txHash}`,
-            instructions: `Transaction ${txHash} can be viewed at ${searchUrl}. Please analyze the transaction data including: sender, recipient, value, gas used, input data, and any token transfers or contract interactions.`
-          }
-        },
-      }),
-      fetchEtherscanPage: tool({
-        description: 'Fetch transaction details from Etherscan',
-        inputSchema: z.object({
-          txHash: z.string().describe('The transaction hash to look up'),
-        }),
-        execute: async ({ txHash }) => {
-          return await fetchTransactionData(txHash)
-        },
-      }),
-    },
-    stopWhen: stepCountIs(5),
   })
 
   return result.toUIMessageStreamResponse()

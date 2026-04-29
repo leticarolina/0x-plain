@@ -6,127 +6,170 @@ import { ExplanationCard } from '@/components/explanation-card'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { RotateCcw } from 'lucide-react'
+import { Logo } from '@/components/logo'
+import { getCachedExample } from '@/lib/cached-examples'
 
 export default function Home() {
   const [txHash, setTxHash] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
-
+  const [error, setError] = useState<string | null>(null)
+  const [cachedResponse, setCachedResponse] = useState<string | null>(null)
+  
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/explain' }),
+    onError: (err) => {
+      setError(err.message || 'Failed to analyze transaction')
+    },
   })
 
   const handleReset = () => {
     setTxHash('')
     setHasSearched(false)
     setMessages([])
+    setError(null)
+    setCachedResponse(null)
   }
 
-  const isLoading = status === 'streaming' || status === 'submitted'
+  // Not loading if we have a cached response
+  const isLoading = !cachedResponse && (status === 'streaming' || status === 'submitted')
 
   const handleSubmit = async (hash: string) => {
     if (!hash.trim() || isLoading) return
     setTxHash(hash)
     setHasSearched(true)
+    setError(null)
+    setCachedResponse(null)
+    
+    // Check for cached example first (no API cost)
+    const cached = getCachedExample(hash)
+    if (cached) {
+      setCachedResponse(cached)
+      return
+    }
+    
     sendMessage({ text: hash }, { body: { txHash: hash } })
   }
 
-  // Get the latest assistant message
   const latestResponse = messages
     .filter((m) => m.role === 'assistant')
     .pop()
 
-  // Extract text from parts
-  const responseText = latestResponse?.parts
+  const aiResponseText = latestResponse?.parts
     ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
     .map((p) => p.text)
     .join('') || ''
+  
+  // Use cached response if available, otherwise use AI response
+  const responseText = cachedResponse || aiResponseText
 
   return (
-    <main className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border px-4 py-4 md:px-6">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-mono font-bold text-lg">0x</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-foreground">0xPlain</h1>
-              <p className="text-sm text-muted-foreground">Blockchain Transaction Explainer</p>
-            </div>
-          </div>
+    <main className={`min-h-screen flex flex-col bg-background ${!hasSearched ? 'h-screen overflow-hidden' : ''}`}>
+      {/* Colorful gradient bar at top */}
+      <div className="h-1.5 gradient-bar flex-shrink-0" />
+      
+      {/* Header - minimal */}
+      <header className="px-6 py-4 flex-shrink-0">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2.5 hover:opacity-70 transition-opacity"
+          >
+            <Logo className="w-7 h-7" />
+            <span className="text-lg font-medium text-foreground tracking-tight">0xPlain</span>
+          </button>
           {hasSearched && (
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">New Search</span>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>New</span>
             </button>
           )}
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 py-8 md:px-6 md:py-12">
-        <div className="max-w-4xl mx-auto space-y-8">
-          {/* Hero Section - only show when no search yet */}
-          {!hasSearched && (
-            <div className="text-center space-y-4 py-8 md:py-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground text-balance">
-                Understand any transaction
-                <br />
-                <span className="text-primary">in plain English</span>
-              </h2>
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto text-pretty">
-                Paste any Ethereum transaction hash and get a detailed, human-readable explanation of exactly what happened.
-              </p>
-            </div>
-          )}
-
-          {/* Input Section */}
-          <TransactionInput
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            initialValue={txHash}
-          />
-
-          {/* Results Section */}
-          {hasSearched && (
-            <ExplanationCard
-              txHash={txHash}
-              content={responseText}
-              isLoading={isLoading}
-            />
-          )}
-
-          {/* Example transactions - only show when no search */}
-          {!hasSearched && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground text-center">Try these examples:</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {[
-                  '0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060',
-                  '0xa1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d',
-                ].map((hash) => (
-                  <button
-                    key={hash}
-                    onClick={() => handleSubmit(hash)}
-                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded-lg font-mono text-xs hover:bg-secondary/80 transition-colors truncate max-w-[280px]"
-                  >
-                    {hash.slice(0, 10)}...{hash.slice(-8)}
-                  </button>
-                ))}
+      {/* Main Content - centered vertically on landing, scrollable on results */}
+      <div className={`flex-1 px-6 ${!hasSearched ? 'flex items-center justify-center' : 'overflow-y-auto py-6'}`}>
+        <div className="w-full max-w-2xl mx-auto">
+          {/* Landing View */}
+          {!hasSearched ? (
+            <div className="text-center space-y-8">
+              {/* Hero Title */}
+              <div className="space-y-3 md:space-y-4">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight font-semibold gradient-text px-2">
+                  From hex to human.
+                </h1>
+                <p className="text-base sm:text-lg md:text-xl text-muted-foreground font-light max-w-lg mx-auto px-4">
+                  Paste any Ethereum transaction hash and get a plain-English explanation of exactly what happened.
+                </p>
               </div>
+
+              {/* Input */}
+              <div className="max-w-xl mx-auto">
+                <TransactionInput
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  initialValue={txHash}
+                />
+              </div>
+
+              {/* Example buttons - more prominent */}
+              <div className="space-y-3 px-2">
+                <p className="text-xs sm:text-sm text-muted-foreground">Or try one of these examples:</p>
+                <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+                  {[
+                    { hash: '0xfe07e3a0e7c1a0b89ca52bb389053927b69c36a059eae5908383411617c06285', label: 'Inscription' },
+                    { hash: '0x12f1262a082b5208126b33fa3ea5064ab0d4fcb4185896e4b0681c35d470daee', label: 'Swap' },
+                    { hash: '0x772496436a352ba82bf69c5c5f9ebeb8fad453b2ae03bb3ba463a57d4d398bc1', label: 'NFT' },
+                    { hash: '0x4e2010a4ab975e6a483669bceb7000203c0e8351a6d15d50c75c30995435b352', label: 'Contract' },
+                    { hash: '0xb6db86279d798cf80d7fc5848671e73d1bad4b8cc1ff020e2c2745c104e113ea', label: 'DeFi' },
+                  ].map((example) => (
+                    <button
+                      key={example.hash}
+                      onClick={() => handleSubmit(example.hash)}
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/70 active:bg-secondary/50 transition-colors"
+                    >
+                      {example.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Results View */
+            <div className="space-y-4">
+              {error ? (
+                <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl text-center">
+                  <p className="text-destructive text-sm">{error}</p>
+                </div>
+              ) : (
+                <ExplanationCard
+                  txHash={txHash}
+                  content={responseText}
+                  isLoading={isLoading}
+                />
+              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-border px-4 py-4 md:px-6">
-        <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
-          <p>Powered by AI with real-time blockchain data lookup</p>
+      <footer className="px-6 py-4 flex-shrink-0">
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-muted-foreground/60">
+          <p>Ethereum mainnet</p>
+          <p>
+            © {new Date().getFullYear()}{' '}
+            <a 
+              href="https://www.letiazevedo.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Leticia Azevedo
+            </a>
+          </p>
         </div>
       </footer>
     </main>
