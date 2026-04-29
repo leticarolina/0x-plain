@@ -49,7 +49,7 @@ export default function Home() {
   return (
     <main className={`min-h-screen flex flex-col bg-background ${!hasSearched ? 'h-screen overflow-hidden' : ''}`}>
       {/* Colorful gradient bar at top */}
-      <div className="h-1 gradient-bar flex-shrink-0" />
+      <div className="h-2 gradient-bar flex-shrink-0" />
       
       {/* Header - minimal */}
       <header className="px-6 py-4 flex-shrink-0">
@@ -139,11 +139,22 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Footer - minimal */}
-      <footer className="px-6 py-3 flex-shrink-0">
-        <p className="text-center text-xs text-muted-foreground/60">
-          Ethereum mainnet
-        </p>
+      {/* Footer */}
+      <footer className="px-6 py-4 flex-shrink-0">
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-muted-foreground/60">
+          <p>Ethereum mainnet</p>
+          <p>
+            © {new Date().getFullYear()}{' '}
+            <a 
+              href="https://www.letiazevedo.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors underline underline-offset-2"
+            >
+              Leticia Azevedo
+            </a>
+          </p>
+        </div>
       </footer>
     </main>
   )
