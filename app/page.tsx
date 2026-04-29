@@ -7,11 +7,13 @@ import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { RotateCcw } from 'lucide-react'
 import { Logo } from '@/components/logo'
+import { getCachedExample } from '@/lib/cached-examples'
 
 export default function Home() {
   const [txHash, setTxHash] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cachedResponse, setCachedResponse] = useState<string | null>(null)
   
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/explain' }),
@@ -25,15 +27,26 @@ export default function Home() {
     setHasSearched(false)
     setMessages([])
     setError(null)
+    setCachedResponse(null)
   }
 
-  const isLoading = status === 'streaming' || status === 'submitted'
+  // Not loading if we have a cached response
+  const isLoading = !cachedResponse && (status === 'streaming' || status === 'submitted')
 
   const handleSubmit = async (hash: string) => {
     if (!hash.trim() || isLoading) return
     setTxHash(hash)
     setHasSearched(true)
     setError(null)
+    setCachedResponse(null)
+    
+    // Check for cached example first (no API cost)
+    const cached = getCachedExample(hash)
+    if (cached) {
+      setCachedResponse(cached)
+      return
+    }
+    
     sendMessage({ text: hash }, { body: { txHash: hash } })
   }
 
@@ -41,10 +54,13 @@ export default function Home() {
     .filter((m) => m.role === 'assistant')
     .pop()
 
-  const responseText = latestResponse?.parts
+  const aiResponseText = latestResponse?.parts
     ?.filter((p): p is { type: 'text'; text: string } => p.type === 'text')
     .map((p) => p.text)
     .join('') || ''
+  
+  // Use cached response if available, otherwise use AI response
+  const responseText = cachedResponse || aiResponseText
 
   return (
     <main className={`min-h-screen flex flex-col bg-background ${!hasSearched ? 'h-screen overflow-hidden' : ''}`}>
