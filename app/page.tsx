@@ -54,10 +54,13 @@ export default function Home() {
       {/* Header - minimal */}
       <header className="px-6 py-4 flex-shrink-0">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2.5 hover:opacity-70 transition-opacity"
+          >
             <Logo className="w-7 h-7" />
             <span className="text-lg font-medium text-foreground tracking-tight">0xPlain</span>
-          </div>
+          </button>
           {hasSearched && (
             <button
               onClick={handleReset}
@@ -77,8 +80,8 @@ export default function Home() {
           {!hasSearched ? (
             <div className="text-center space-y-8">
               {/* Hero Title */}
-              <div className="space-y-3">
-                <h1 className="text-3xl md:text-4xl tracking-tight">
+              <div className="space-y-4">
+                <h1 className="text-4xl md:text-5xl lg:text-6xl tracking-tight leading-tight">
                   <span className="font-light text-muted-foreground">Understand any </span>
                   <span className="font-semibold gradient-text">blockchain</span>
                   <br />
@@ -96,21 +99,26 @@ export default function Home() {
                 />
               </div>
 
-              {/* Example buttons */}
-              <div className="flex flex-wrap justify-center gap-2">
-                <span className="text-xs text-muted-foreground mr-2 self-center">Try:</span>
-                {[
-                  { hash: '0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060', label: 'ETH Transfer' },
-                  { hash: '0xfe07e3a0e7c1a0b89ca52bb389053927b69c36a059eae5908383411617c06285', label: 'Inscription' },
-                ].map((example) => (
-                  <button
-                    key={example.hash}
-                    onClick={() => handleSubmit(example.hash)}
-                    className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-full hover:border-muted-foreground/30 transition-colors"
-                  >
-                    {example.label}
-                  </button>
-                ))}
+              {/* Example buttons - more prominent */}
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Or try one of these examples:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {[
+                    { hash: '0xfe07e3a0e7c1a0b89ca52bb389053927b69c36a059eae5908383411617c06285', label: 'Inscription Mint' },
+                    { hash: '0x12f1262a082b5208126b33fa3ea5064ab0d4fcb4185896e4b0681c35d470daee', label: 'Token Swap' },
+                    { hash: '0x772496436a352ba82bf69c5c5f9ebeb8fad453b2ae03bb3ba463a57d4d398bc1', label: 'NFT Transfer' },
+                    { hash: '0x4e2010a4ab975e6a483669bceb7000203c0e8351a6d15d50c75c30995435b352', label: 'Contract Call' },
+                    { hash: '0xb6db86279d798cf80d7fc5848671e73d1bad4b8cc1ff020e2c2745c104e113ea', label: 'DeFi Action' },
+                  ].map((example) => (
+                    <button
+                      key={example.hash}
+                      onClick={() => handleSubmit(example.hash)}
+                      className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-full hover:bg-secondary/70 transition-colors"
+                    >
+                      {example.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
