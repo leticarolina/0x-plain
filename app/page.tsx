@@ -81,13 +81,12 @@ export default function Home() {
             <div className="text-center space-y-8">
               {/* Hero Title */}
               <div className="space-y-4">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl tracking-tight leading-tight">
-                  <span className="font-light text-muted-foreground">Understand any </span>
-                  <span className="font-semibold gradient-text">blockchain</span>
-                  <br />
-                  <span className="font-semibold gradient-text">transaction</span>
-                  <span className="font-light text-muted-foreground"> in plain English</span>
+                <h1 className="text-5xl md:text-6xl lg:text-7xl tracking-tight font-semibold gradient-text">
+                  From hex to human.
                 </h1>
+                <p className="text-lg md:text-xl text-muted-foreground font-light max-w-lg mx-auto">
+                  Paste any Ethereum transaction hash and get a plain-English explanation of exactly what happened.
+                </p>
               </div>
 
               {/* Input */}
