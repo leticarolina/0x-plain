@@ -63,34 +63,30 @@ async function incrementCounters() {
   }
 }
 
-// Fetch transaction data from Etherscan API
+// Fetch transaction data from Etherscan API V2
 async function fetchTransactionFromEtherscan(txHash: string) {
   const apiKey = process.env.ETHERSCAN_API_KEY
   
-  console.log('[v0] ETHERSCAN_API_KEY exists:', !!apiKey)
-  console.log('[v0] API Key first 10 chars:', apiKey?.slice(0, 10))
-  
   if (!apiKey) {
-    console.log('[v0] ERROR: No API key found')
     return { found: false, hash: txHash, error: 'ETHERSCAN_API_KEY is not configured' }
   }
 
-  const txUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
-  console.log('[v0] Fetching from URL:', txUrl.replace(apiKey, 'HIDDEN'))
+  // Etherscan API V2 base URL for Ethereum mainnet (chainid=1)
+  const baseUrl = 'https://api.etherscan.io/v2/api'
+  const chainId = 1 // Ethereum mainnet
+  
+  const txUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
   
   try {
     const txResponse = await fetch(txUrl)
     const txData = await txResponse.json()
     
-    console.log('[v0] Etherscan raw response:', JSON.stringify(txData).slice(0, 500))
-    
     if (txData.result && txData.result !== null && typeof txData.result === 'object') {
-      console.log('[v0] Transaction found, fetching receipt...')
-      const receiptUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${apiKey}`
+      const receiptUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getTransactionReceipt&txhash=${txHash}&apikey=${apiKey}`
       const receiptResponse = await fetch(receiptUrl)
       const receiptData = await receiptResponse.json()
       
-      const blockUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true&apikey=${apiKey}`
+      const blockUrl = `${baseUrl}?chainid=${chainId}&module=proxy&action=eth_getBlockByNumber&tag=${txData.result.blockNumber}&boolean=true&apikey=${apiKey}`
       const blockResponse = await fetch(blockUrl)
       const blockData = await blockResponse.json()
       
@@ -128,8 +124,6 @@ async function fetchTransactionFromEtherscan(txHash: string) {
         }
       }
       
-      console.log('[v0] Parsed data - From:', tx.from, 'To:', tx.to, 'Value:', value, 'ETH')
-      
       return {
         found: true,
         hash: txHash,
@@ -153,10 +147,8 @@ async function fetchTransactionFromEtherscan(txHash: string) {
       }
     }
     
-    console.log('[v0] Transaction not found - result was:', txData.result)
     return { found: false, hash: txHash, error: 'Transaction not found on Ethereum mainnet' }
   } catch (error) {
-    console.log('[v0] Fetch error:', error)
     return { found: false, hash: txHash, error: String(error) }
   }
 }

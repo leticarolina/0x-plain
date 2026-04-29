@@ -25,7 +25,8 @@ export async function GET(req: Request) {
   }
   
   try {
-    const txUrl = `https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
+    // Using Etherscan API V2 with chainid=1 for Ethereum mainnet
+    const txUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${apiKey}`
     
     const response = await fetch(txUrl)
     const data = await response.json()
